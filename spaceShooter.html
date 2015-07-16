@@ -4,9 +4,11 @@
 <title>Simple Arrow Controlled FPS</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
+<!-- WebGL -->
 <script type="text/javascript" src="javascript/glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="javascript/webgl-utils.js"></script>
 
+<!-- Fragment Shader -->
 <script id="shader-fs" type="x-shader/x-fragment">
     precision mediump float;
 
@@ -16,7 +18,7 @@
         gl_FragColor = vColor;
     }
 </script>
-
+<!-- Vertex Shader -->
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
     attribute vec4 aVertexColor;
@@ -37,20 +39,26 @@
 <script type="text/javascript">
 
     var gl;
+    <!---Initialize  the viewport -->
     function initGL(canvas) {
+        <!--If WebGl is operational-->
         try {
+            <!--Get the canvas element-->
             gl = canvas.getContext("experimental-webgl");
+            <!--Set size and height-->
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
         }
+        <!-- Alert User that WebGL in nonoperations -->
         if (!gl) {
             alert("Could not initialise WebGL, sorry :-(");
         }
     }
 
-
+    <!--Function to retrieve GLSL code, create and then return a shader-->
     function getShader(gl, id) {
+        <!--Retrieve the shader source code-->
         var shaderScript = document.getElementById(id);
         if (!shaderScript) {
             return null;
@@ -64,7 +72,7 @@
             }
             k = k.nextSibling;
         }
-
+        <!--Create the shader-->
         var shader;
         if (shaderScript.type == "x-shader/x-fragment") {
             shader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -76,7 +84,7 @@
 
         gl.shaderSource(shader, str);
         gl.compileShader(shader);
-
+        <!--If error with shader, log and return null-->
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
             alert(gl.getShaderInfoLog(shader));
             return null;
@@ -88,10 +96,12 @@
 
     var shaderProgram;
 
+    <!--Create the shaderProgram for our scene-->
     function initShaders() {
         var fragmentShader = getShader(gl, "shader-fs");
         var vertexShader = getShader(gl, "shader-vs");
 
+        <!--Attach our fragmentShader and vertexShader to our shaderProgram-->
         shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertexShader);
         gl.attachShader(shaderProgram, fragmentShader);
@@ -101,6 +111,8 @@
             alert("Could not initialise shaders");
         }
 
+
+        <!--Link our Uniforms and varying variables to our shader program-->
         gl.useProgram(shaderProgram);
 
         shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
@@ -112,11 +124,14 @@
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
     }
-	
+
+    <!--Create the Model View Matrix and mvMatrix statck-->
 	var mvMatrix = mat4.create();
     var mvMatrixStack = [];
+    <!--Create our Projection Matrix-->
     var pMatrix = mat4.create();
 
+    <!--Functions to handle our mvMatrix Stack-->
     function mvPushMatrix() {
         var copy = mat4.create();
         mat4.set(mvMatrix, copy);
@@ -129,22 +144,25 @@
         }
         mvMatrix = mvMatrixStack.pop();
     }
-
+    <!--Set our mvMatrix and pMatrix -->
     function setMatrixUniforms() {
         gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
     }
 
 
-
+    <!--Buffers for our reference cube-->
     var cubeVertexPositionBuffer;
     var cubeVertexColorBuffer;
-    var cubeVertexIndexBuffer; 
+    var cubeVertexIndexBuffer;
+    <!--Buffer for our ground -->
 	var squareVertexPositionBuffer;
+
+    <!--Buffer for our crosshairs-->
 	var cursorVertexPositionBuffer;
     function initBuffers() {
-		
-		//Create the reference cube
+
+        <!-- Declare and Load cube shader information -->
 		cubeVertexPositionBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
 		vertices = [
@@ -239,7 +257,9 @@
 		squareVertexPositionBuffer.numItems = 4;
 		
 		
-		//Create the cursor
+		//Create the crosshair
+
+        //Set size for the square to be drawn
 		var cursorSize = .05; 
 		cursorVertexPositionBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, cursorVertexPositionBuffer);
@@ -256,20 +276,27 @@
 
 	var rCube = 0; 
     function drawScene() {
+
+        <!--Define our viewport-->
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+        <!--Define our perspective matrix-->
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
 
         mat4.identity(mvMatrix);
 
-		 mat4.rotate(mvMatrix, degToRad(-pitch), [1, 0, 0]);
+        <!--Rotate the scene around the camera-->
+        mat4.rotate(mvMatrix, degToRad(-pitch), [1, 0, 0]);
         mat4.rotate(mvMatrix, degToRad(-yaw), [0, 1, 0]);
         mat4.translate(mvMatrix, [xPos, yPos, zPos]);
 
         mvPushMatrix();
+
         mat4.rotate(mvMatrix, degToRad(rCube), [1, 1, 1]);
 
+        <!-- Draw and Color Cube-->
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -280,8 +307,8 @@
         setMatrixUniforms();
         gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		
-		 mat4.translate(mvMatrix, [0.0, -5.0, 0.0]);
-		 mat4.rotate(mvMatrix, degToRad(90), [1, 0, 0]);
+        mat4.translate(mvMatrix, [0.0, -5.0, 0.0]);
+        mat4.rotate(mvMatrix, degToRad(90), [1, 0, 0]);
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
         setMatrixUniforms();
@@ -302,7 +329,8 @@
 		 
 
     }
-	
+
+    //Tick function for every frame
 	function tick() {
 		requestAnimFrame(tick);
 		drawScene();
@@ -310,14 +338,13 @@
 		animate(); 
 	}
 
-	
+	//Basic function for converting degress to radians
 	function degToRad(degrees) {
 		return degrees * Math.PI / 180;
 	}
 
-    var cubeVertexPositionBuffer;
-    var cubeVertexColorBuffer;
-    var cubeVertexIndexBuffer;
+
+    <!-- Start our scene -->
 
     function webGLStart() {
         var canvas = document.getElementById("canvas");
@@ -336,19 +363,25 @@
         tick()
     }
 	
-	var lastTime = 0;  
+	var lastTime = 0;
+    <!-- Animate -->
 	function animate() {
+
+        <!-- Get the elapsed time -->
 		var timeNow = new Date().getTime();
 		if (lastTime != 0) {
 			var elapsed = timeNow - lastTime;
-		
+
+
+                <!-- Update Yaw -->
 				yaw += yawRate * elapsed;
-				
+                <!-- Update Pitch -->
 				pitch += pitchRate * elapsed;
-				
+
+                <!-- Update Our position based on yaw -->
 				if(velocity != 0){
 					xPos -= Math.sin(degToRad(yaw)) * velocity * elapsed;
-					zPos -= Math.cos(degToRad(yaw)) * velocity * elapsed;
+					zPos -= Math.cos(degToRad(pitch)) * velocity * elapsed;
 				}
 		}
 		
@@ -357,7 +390,8 @@
     }
 	
 	var currentlyPressedKeys = {};
-	
+
+    <!-- Add keylisteners -->
     function handleKeyUp(event) {
         currentlyPressedKeys[event.keyCode] = false;
     }
@@ -367,7 +401,7 @@
     }
 
 
-
+    <!-- Variables for movment -->
     var pitch = 0;
     var pitchRate = 0;
 
@@ -380,6 +414,7 @@
 
     var velocity = 0;
 
+    <!-- On key press change velocity -->
     function handleKeys() {
 
 
@@ -389,9 +424,7 @@
 			 
         } else if (currentlyPressedKeys[40] || currentlyPressedKeys[83]) {
             // Down cursor key
-            
-			 velocity = 0.005; 
-			 
+			 velocity = 0.005;
         } 
 		
 		else{
@@ -400,15 +433,17 @@
 		}
 
     }
-	
+
+    <!-- Tracks mouse movement -->
 	var lastX = 0; 
 	var lastY = 0; 
 	function onMouseMove(event){
 
+        <!-- Update Yaw -->
 		yawRate = (lastX - event.clientX) * .01; 
-		lastX = event.clientX; 
-		
-		
+		lastX = event.clientX;
+
+        <!-- Update Pitch -->
 		pitchRate = (lastY - event.clientY) * .01; 
 		lastY = event.clientY; 
 		console.log(lastY, event.clientY);
@@ -416,10 +451,6 @@
 		
 		
 	}
-	
-	
-
-
 </script>
 
 
